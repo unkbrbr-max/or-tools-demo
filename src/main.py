@@ -9,34 +9,65 @@ from solution_collector import SolutionCollector
 
 
 def parse_args() -> argparse.Namespace:
-    """コマンドライン引数を解析する(目標合計値のみ受け取る。件数上限はconfig.iniのlimitを使う)。"""
+    """コマンドライン引数を解析する(目標合計値は複数指定可。件数上限はconfig.iniのlimitを使う)。"""
     parser = argparse.ArgumentParser(description="数値の組み合わせ探索")
-    parser.add_argument("--target", type=int, default=0, help="目標合計値")
+    parser.add_argument(
+        "--target",
+        type=int,
+        nargs="+",
+        required=True,
+        help="目標合計値(複数指定すると、行が重複しない組み合わせを目標ごとに探索する)",
+    )
     return parser.parse_args()
 
 
-def find_combinations(amounts: list[int], target: int, limit: int, callback=None) -> list[tuple[int, ...]]:
-    """amountsの部分集合のうち合計がtargetと一致する組み合わせをlimit件まで探索する。"""
-    model = cp_model.CpModel()
-    variables = [model.NewBoolVar(f"x_{i}") for i in range(len(amounts))]
+def find_combinations(
+    amounts: list[int], targets: list[int], limit: int, callback=None
+) -> list[list[tuple[int, list[int]]]]:
+    """amountsの部分集合から、targetsの各値に合計が一致するグループを、行の重複なしにlimit件まで探索する。
 
-    model.Add(sum(amount * var for amount, var in zip(amounts, variables)) == target)
+    戻り値は解のリストで、各解は[(target, その目標に割り当てられた行インデックス一覧), ...]という形式。
+    """
+    model = cp_model.CpModel()
+    n = len(amounts)
+    m = len(targets)
+    # variables[k * n + i] が「行iを目標targets[k]のグループに割り当てるか」を表す
+    variables = [model.NewBoolVar(f"x_{k}_{i}") for k in range(m) for i in range(n)]
+
+    for k, target in enumerate(targets):
+        model.Add(sum(amounts[i] * variables[k * n + i] for i in range(n)) == target)
+
+    for i in range(n):
+        model.Add(sum(variables[k * n + i] for k in range(m)) <= 1)
 
     solver = cp_model.CpSolver()
     solver.parameters.num_search_workers = NUM_SEARCH_WORKERS
     solver.parameters.enumerate_all_solutions = True
 
-    collector = SolutionCollector(variables, limit=limit, callback=callback)
+    def decode(flat_indexes: list[int]) -> list[tuple[int, list[int]]]:
+        groups: list[list[int]] = [[] for _ in range(m)]
+        for idx in flat_indexes:
+            k, i = divmod(idx, n)
+            groups[k].append(i)
+        return [(targets[k], groups[k]) for k in range(m)]
+
+    wrapped_callback = None
+    if callback is not None:
+        wrapped_callback = lambda solution_no, flat_indexes: callback(solution_no, decode(flat_indexes))
+
+    collector = SolutionCollector(variables, limit=limit, callback=wrapped_callback)
     solver.Solve(model, collector)
 
-    return collector.solutions
+    return [decode(flat_indexes) for flat_indexes in collector.solutions]
 
 
-def print_solution(df: pd.DataFrame, solution_no: int, indexes: list[int]) -> None:
-    """見つかった解1件分の対象行を標準出力に表示する(find_combinationsのcallbackとして渡す)。"""
+def print_solution(df: pd.DataFrame, solution_no: int, groups: list[tuple[int, list[int]]]) -> None:
+    """見つかった解1件分を、目標値ごとに区切って標準出力に表示する(find_combinationsのcallbackとして渡す)。"""
     print("=" * 30)
     print(f"解: {solution_no}")
-    print(df.iloc[indexes])
+    for target, indexes in groups:
+        print(f"--- target={target} ---")
+        print(df.iloc[indexes])
 
 
 def main() -> None:
@@ -48,9 +79,9 @@ def main() -> None:
 
     solutions = find_combinations(
         amounts,
-        target=args.target,
+        targets=args.target,
         limit=DEFAULT_LIMIT,
-        callback=lambda solution_no, indexes: print_solution(df, solution_no, indexes),
+        callback=lambda solution_no, groups: print_solution(df, solution_no, groups),
     )
 
     if not solutions:

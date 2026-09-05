@@ -11,7 +11,7 @@ if not exist ".venv\Scripts\python.exe" (
 
 :ask_target
 set "TARGET="
-set /p "TARGET=target: "
+set /p "TARGET=target (separate multiple values with spaces): "
 if "%TARGET%"=="" (
     echo target ha hissu desu.
     goto ask_target

@@ -17,13 +17,7 @@ if "%TARGET%"=="" (
     goto ask_target
 )
 
-set "LIMIT="
-set /p "LIMIT=limit: "
-
-set "ARGS=--target %TARGET%"
-if not "%LIMIT%"=="" set "ARGS=%ARGS% --limit %LIMIT%"
-
-".venv\Scripts\python.exe" src\main.py %ARGS%
+".venv\Scripts\python.exe" src\main.py --target %TARGET%
 
 echo.
 pause

@@ -2,8 +2,10 @@ from typing import Sequence
 
 import pandas as pd
 
-from constants import AMOUNT_COLUMN, DETAIL_LEADING_COLUMNS
+from config import AMOUNT_COLUMN, TITLE_COLUMN
 
+# Detailsシートで先頭に固定する列の並び順(数値の右にタイトルを表示する)
+DETAIL_LEADING_COLUMNS = ["solution_no", "source_index", AMOUNT_COLUMN, TITLE_COLUMN]
 
 class ExcelWriter:
     """見つかった解の一覧をExcelファイル(Summary/Detailsシート)として出力する。"""

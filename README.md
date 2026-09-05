@@ -19,9 +19,21 @@ CSVの数値データから、合計が指定した目標値と一致する組�
 ### 入力する値
 
 - `target`: 合計を一致させたい目標合計値
-- `limit`: 収集する解の最大件数(省略時は`src\constants.py`の`DEFAULT_LIMIT`)
 
-結果は `data\result.xlsx` に出力されます(Summaryシート・Detailsシート)。
+結果は `data\result.xlsx` に出力されます(Summaryシート・Detailsシート)。設定ファイル`config.ini`で出力先や件数上限などを変更できます(詳細は「設定ファイル」参照)。
+
+## 設定ファイル
+
+リポジトリ直下の `config.ini` で以下の値を変更できます。メモ帳などで直接編集してください。
+
+| 項目 | 内容 | デフォルト |
+| --- | --- | --- |
+| `csv_file` | 入力データのCSVパス | `data/input.csv` |
+| `output_file` | 結果を書き出すExcelファイルのパス | `data/result.xlsx` |
+| `limit` | 収集する解の最大件数 | `100` |
+| `num_search_workers` | CP-SATソルバーの並列探索ワーカー数 | `4` |
+| `amount_column` | 数値を表すCSV列名 | `数値` |
+| `title_column` | タイトルを表すCSV列名 | `タイトル` |
 
 ## データ
 
@@ -35,6 +47,6 @@ CSVの数値データから、合計が指定した目標値と一致する組�
 
 ## その他
 ### 探索負荷軽減／高速化したいとき
-`src/constants.py`の`NUM_SEARCH_WORKERS`の値を変更してください。  
+`config.ini`の`num_search_workers`の値を変更してください。  
 値が小さいほど並列の探索数が減り、負荷が軽減されます。  
 値が大きいほど並列の探索数が増えることで、短時間での探索を期待できますが負荷が増します。  

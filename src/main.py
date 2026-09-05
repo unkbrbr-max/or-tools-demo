@@ -3,22 +3,15 @@ import argparse
 import pandas as pd
 from ortools.sat.python import cp_model
 
-from constants import (
-    AMOUNT_COLUMN,
-    CSV_FILE,
-    DEFAULT_LIMIT,
-    NUM_SEARCH_WORKERS,
-    OUTPUT_FILE,
-)
+from config import AMOUNT_COLUMN, CSV_FILE, DEFAULT_LIMIT, NUM_SEARCH_WORKERS, OUTPUT_FILE
 from excel_writer import ExcelWriter
 from solution_collector import SolutionCollector
 
 
 def parse_args() -> argparse.Namespace:
-    """コマンドライン引数を解析する(未指定時はconstants.pyの値を使う)。"""
+    """コマンドライン引数を解析する(目標合計値のみ受け取る。件数上限はconfig.iniのlimitを使う)。"""
     parser = argparse.ArgumentParser(description="数値の組み合わせ探索")
     parser.add_argument("--target", type=int, default=0, help="目標合計値")
-    parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help="収集する解の最大件数")
     return parser.parse_args()
 
 
@@ -56,7 +49,7 @@ def main() -> None:
     solutions = find_combinations(
         amounts,
         target=args.target,
-        limit=args.limit,
+        limit=DEFAULT_LIMIT,
         callback=lambda solution_no, indexes: print_solution(df, solution_no, indexes),
     )
 

@@ -55,11 +55,4 @@ CSVの数値データから、合計が指定した目標値と一致する組�
 | `csv_file` | 入力データのCSVパス | `data/input.csv` |
 | `output_file` | 結果を書き出すExcelファイルのパス | `data/result.xlsx` |
 | `limit` | 収集する解の最大件数 | `100` |
-| `num_search_workers` | CP-SATソルバーの並列探索ワーカー数 | `4` |
 | `amount_column` | 数値を表すCSV列名 | `数値` |
-
-## その他
-### 探索負荷軽減／高速化したいとき
-`config.ini`の`num_search_workers`の値を変更してください。  
-値が小さいほど並列の探索数が減り、負荷が軽減されます。  
-値が大きいほど並列の探索数が増えることで、短時間での探索を期待できますが負荷が増します。  

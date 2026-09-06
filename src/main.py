@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 from ortools.sat.python import cp_model
 
-from config import AMOUNT_COLUMN, CSV_FILE, DEFAULT_LIMIT, NUM_SEARCH_WORKERS, OUTPUT_FILE
+from config import AMOUNT_COLUMN, CSV_FILE, DEFAULT_LIMIT, OUTPUT_FILE
 from excel_writer import ExcelWriter
 from solution_collector import SolutionCollector
 
@@ -55,18 +55,9 @@ def find_combinations(
         model.Add(sum(variables[k * n + i] for k in range(m)) <= 1)
 
     solver = cp_model.CpSolver()
-    solver.parameters.num_search_workers = NUM_SEARCH_WORKERS
-
-    # 同時に満たせるtargetの数が最大の解だけを列挙する
-    # (例えばtarget1とtarget3を同時に満たす解が存在するなら、target1のみ・target3のみを満たす)
-    model.Maximize(sum(used))
-    status = solver.Solve(model)
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        return []
-    best_used_count = round(solver.ObjectiveValue())
-
-    model.Add(sum(used) == best_used_count)
-    model.Proto().clear_objective()
+    # enumerate_all_solutions=Trueは並列探索(num_search_workers>1)だと解を取りこぼすことがあるため、
+    # 列挙時は強制的にシングルスレッドにする
+    solver.parameters.num_search_workers = 1
     solver.parameters.enumerate_all_solutions = True
 
     def decode(flat_indexes: list[int]) -> list[tuple[int, list[int]]]:
@@ -76,14 +67,31 @@ def find_combinations(
             groups[k].append(i)
         return [(targets[k], groups[k]) for k in range(m)]
 
-    wrapped_callback = None
-    if callback is not None:
-        wrapped_callback = lambda solution_no, flat_indexes: callback(solution_no, decode(flat_indexes))
-
-    collector = SolutionCollector(variables, limit=limit, callback=wrapped_callback)
+    # 「target1のみ」のような解は、「target1とtarget3」を同時に満たす解のused集合の
+    # 部分集合になっている(=行を全部0にすれば必ず成立する劣化版)。そのため生の探索では
+    # 本来欲しい解のused集合の組み合わせ分(最大2^m通り)だけ水増しされる。
+    # 欲しい件数(limit)を確保するため、水増し分を見込んで多めに集めてからフィルタする。
+    raw_limit = limit * (2**m)
+    collector = SolutionCollector(variables, limit=raw_limit)
     solver.Solve(model, collector)
 
-    return [decode(flat_indexes) for flat_indexes in collector.solutions]
+    raw_solutions = [decode(flat_indexes) for flat_indexes in collector.solutions]
+
+    def used_target_set(solution: list[tuple[int, list[int]]]) -> frozenset[int]:
+        return frozenset(k for k, (_, indexes) in enumerate(solution) if indexes)
+
+    used_sets = [used_target_set(solution) for solution in raw_solutions]
+    solutions = [
+        solution
+        for solution, used_keys in zip(raw_solutions, used_sets)
+        if not any(used_keys < other for other in used_sets if other != used_keys)
+    ][:limit]
+
+    if callback is not None:
+        for solution_no, solution in enumerate(solutions, start=1):
+            callback(solution_no, solution)
+
+    return solutions
 
 
 def print_solution(df: pd.DataFrame, solution_no: int, groups: list[tuple[int, list[int]]]) -> None:

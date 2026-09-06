@@ -13,12 +13,15 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="数値の組み合わせ探索")
     parser.add_argument(
         "--target",
-        type=int,
+        type=str,
         nargs="+",
         required=True,
-        help="目標合計値(複数指定すると、行が重複しない組み合わせを目標ごとに探索する)",
+        help="目標合計値(スペース区切り・カンマ区切りのどちらでも複数指定可。"
+        "複数指定すると、行が重複しない組み合わせを目標ごとに探索する)",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.target = [int(value) for token in args.target for value in token.split(",") if value != ""]
+    return args
 
 
 def find_combinations(
@@ -75,7 +78,7 @@ def main() -> None:
     args = parse_args()
 
     df = pd.read_csv(CSV_FILE)
-    amounts = df[AMOUNT_COLUMN].astype(int).tolist()
+    amounts = df[AMOUNT_COLUMN].astype(str).str.replace(",", "", regex=False).astype(int).tolist()
 
     solutions = find_combinations(
         amounts,

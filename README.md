@@ -55,4 +55,5 @@ CSVの数値データから、合計が指定した目標値と一致する組�
 | `csv_file` | 入力データのCSVパス | `data/input.csv` |
 | `output_file` | 結果を書き出すExcelファイルのパス | `data/result.xlsx` |
 | `limit` | 収集する解の最大件数 | `100` |
+| `search_time_limit` | 探索を打ち切るまでの最大実行時間(秒) | `30` |
 | `amount_column` | 数値を表すCSV列名 | `数値` |

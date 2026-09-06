@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 from ortools.sat.python import cp_model
 
-from config import AMOUNT_COLUMN, CSV_FILE, DEFAULT_LIMIT, OUTPUT_FILE
+from config import AMOUNT_COLUMN, CSV_FILE, DEFAULT_LIMIT, OUTPUT_FILE, SEARCH_TIME_LIMIT
 from excel_writer import ExcelWriter
 from solution_collector import SolutionCollector
 
@@ -26,11 +26,18 @@ def parse_args() -> argparse.Namespace:
 
 
 def find_combinations(
-    amounts: list[int], targets: list[int], limit: int, callback=None
-) -> list[list[tuple[int, list[int]]]]:
+    amounts: list[int],
+    targets: list[int],
+    limit: int,
+    time_limit: float,
+    callback=None,
+) -> tuple[list[list[tuple[int, list[int]]]], bool]:
     """amountsの部分集合から、targetsの各値に合計が一致するグループを、行の重複なしにlimit件まで探索する。
 
-    戻り値は解のリストで、各解は[(target, その目標に割り当てられた行インデックス一覧), ...]という形式。
+    戻り値は(解のリスト, タイムアウトしたか)のタプル。各解は
+    [(target, その目標に割り当てられた行インデックス一覧), ...]という形式。
+    当てはまる組み合わせが極端に多いtargetでは、探索がtime_limit秒で打ち切られ、
+    その時点までに見つかった解だけを返すことがある(その場合timed_out=True)。
     """
     model = cp_model.CpModel()
     n = len(amounts)
@@ -59,6 +66,9 @@ def find_combinations(
     # 列挙時は強制的にシングルスレッドにする
     solver.parameters.num_search_workers = 1
     solver.parameters.enumerate_all_solutions = True
+    # 当てはまる組み合わせが極端に多いtargetでは、解を1件見つけるごとに探索し直すため
+    # 際限なく時間がかかることがある。無応答を避けるため打ち切り時間を設ける
+    solver.parameters.max_time_in_seconds = time_limit
 
     def decode(flat_indexes: list[int]) -> list[tuple[int, list[int]]]:
         groups: list[list[int]] = [[] for _ in range(m)]
@@ -74,6 +84,7 @@ def find_combinations(
     raw_limit = limit * (2**m)
     collector = SolutionCollector(variables, limit=raw_limit)
     solver.Solve(model, collector)
+    timed_out = len(collector.solutions) < raw_limit and solver.WallTime() >= time_limit
 
     raw_solutions = [decode(flat_indexes) for flat_indexes in collector.solutions]
 
@@ -91,7 +102,7 @@ def find_combinations(
         for solution_no, solution in enumerate(solutions, start=1):
             callback(solution_no, solution)
 
-    return solutions
+    return solutions, timed_out
 
 
 def print_solution(df: pd.DataFrame, solution_no: int, groups: list[tuple[int, list[int]]]) -> None:
@@ -114,12 +125,19 @@ def main() -> None:
     df[AMOUNT_COLUMN] = df[AMOUNT_COLUMN].astype(str).str.replace(",", "", regex=False).astype(int)
     amounts = df[AMOUNT_COLUMN].tolist()
 
-    solutions = find_combinations(
+    solutions, timed_out = find_combinations(
         amounts,
         targets=args.target,
         limit=DEFAULT_LIMIT,
+        time_limit=SEARCH_TIME_LIMIT,
         callback=lambda solution_no, groups: print_solution(df, solution_no, groups),
     )
+
+    if timed_out:
+        print(
+            f"警告: 探索がタイムアウト({SEARCH_TIME_LIMIT}秒)で打ち切られました。"
+            "見つかった範囲の解のみ出力します(他にも解がある可能性があります)。"
+        )
 
     if not solutions:
         print("見つかりませんでした")

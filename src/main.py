@@ -9,18 +9,18 @@ from solution_collector import SolutionCollector
 
 
 def parse_args() -> argparse.Namespace:
-    """コマンドライン引数を解析する(目標合計値は複数指定可。件数上限はconfig.iniのlimitを使う)。"""
+    """コマンドライン引数を解析する(目標合計値はスペース区切りで複数指定可。件数上限はconfig.iniのlimitを使う)。"""
     parser = argparse.ArgumentParser(description="数値の組み合わせ探索")
     parser.add_argument(
         "--target",
         type=str,
         nargs="+",
         required=True,
-        help="目標合計値(スペース区切り・カンマ区切りのどちらでも複数指定可。"
+        help="目標合計値(スペース区切りで複数指定可。各値の中のカンマは桁区切りとして無視される。"
         "複数指定すると、行が重複しない組み合わせを目標ごとに探索する)",
     )
     args = parser.parse_args()
-    args.target = [int(value) for token in args.target for value in token.split(",") if value != ""]
+    args.target = [int(value.replace(",", "")) for value in args.target]
     return args
 
 

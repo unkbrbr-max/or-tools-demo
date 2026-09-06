@@ -56,6 +56,17 @@ def find_combinations(
 
     solver = cp_model.CpSolver()
     solver.parameters.num_search_workers = NUM_SEARCH_WORKERS
+
+    # 同時に満たせるtargetの数が最大の解だけを列挙する
+    # (例えばtarget1とtarget3を同時に満たす解が存在するなら、target1のみ・target3のみを満たす)
+    model.Maximize(sum(used))
+    status = solver.Solve(model)
+    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return []
+    best_used_count = round(solver.ObjectiveValue())
+
+    model.Add(sum(used) == best_used_count)
+    model.Proto().clear_objective()
     solver.parameters.enumerate_all_solutions = True
 
     def decode(flat_indexes: list[int]) -> list[tuple[int, list[int]]]:

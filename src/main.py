@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 
 import pandas as pd
 from ortools.sat.python import cp_model
@@ -91,7 +92,8 @@ def main() -> None:
     args = parse_args()
 
     df = pd.read_csv(CSV_FILE)
-    amounts = df[AMOUNT_COLUMN].astype(str).str.replace(",", "", regex=False).astype(int).tolist()
+    df[AMOUNT_COLUMN] = df[AMOUNT_COLUMN].astype(str).str.replace(",", "", regex=False).astype(int)
+    amounts = df[AMOUNT_COLUMN].tolist()
 
     solutions = find_combinations(
         amounts,
@@ -104,9 +106,13 @@ def main() -> None:
         print("見つかりませんでした")
         return
 
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    ExcelWriter().write(df=df, solutions=solutions, path=str(OUTPUT_FILE))
-    print("処理完了")
+    now = datetime.now()
+    date_dir = OUTPUT_FILE.parent / now.strftime("%Y%m%d")
+    output_path = date_dir / f"{OUTPUT_FILE.stem}_{now.strftime('%Y%m%d_%H%M%S')}{OUTPUT_FILE.suffix}"
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    ExcelWriter().write(df=df, solutions=solutions, path=str(output_path))
+    print(f"処理完了: {output_path}")
 
 
 if __name__ == "__main__":

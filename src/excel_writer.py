@@ -1,11 +1,21 @@
 from typing import Sequence
 
 import pandas as pd
+from openpyxl.styles import Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.worksheet import Worksheet
 
 from config import AMOUNT_COLUMN
 
 # Detailsシートで先頭に固定する列の並び順(残りのCSV列はこの後ろに元の順序で続く)
 DETAIL_LEADING_COLUMNS = ["solution_no", "target", "source_index", AMOUNT_COLUMN]
+
+# 3桁区切りで表示する列(Summary/Detailsに共通する列名のみ対象)
+COMMA_FORMAT_COLUMNS = ["target", "合計", AMOUNT_COLUMN]
+COMMA_NUMBER_FORMAT = "#,##0"
+
+# Detailsシートでsolution_noが切り替わる行の上端に引く罫線
+SOLUTION_BORDER_TOP = Border(top=Side(style="medium"))
 
 # 1件の解: 目標値ごとの(target, 対象行インデックス一覧)のリスト
 Solution = Sequence[tuple[int, Sequence[int]]]
@@ -25,6 +35,34 @@ class ExcelWriter:
             summary_df.to_excel(writer, sheet_name="Summary", index=False)
             details_df.to_excel(writer, sheet_name="Details", index=False)
 
+            self._apply_comma_format(writer.sheets["Summary"], summary_df)
+            self._apply_comma_format(writer.sheets["Details"], details_df)
+            self._apply_solution_borders(writer.sheets["Summary"], summary_df)
+            self._apply_solution_borders(writer.sheets["Details"], details_df)
+
+    def _apply_solution_borders(self, worksheet: Worksheet, df: pd.DataFrame) -> None:
+        """solution_noが前の行と変わる行の上端に罫線を引いてsolutionの区切りを示す。"""
+        if "solution_no" not in df.columns or df.empty:
+            return
+
+        previous_solution_no = df["solution_no"].iloc[0]
+
+        for row_offset, solution_no in enumerate(df["solution_no"]):
+            if solution_no != previous_solution_no:
+                row = row_offset + 2
+                for column_index in range(1, len(df.columns) + 1):
+                    worksheet[f"{get_column_letter(column_index)}{row}"].border = SOLUTION_BORDER_TOP
+                previous_solution_no = solution_no
+
+    def _apply_comma_format(self, worksheet: Worksheet, df: pd.DataFrame) -> None:
+        """dfの列のうちCOMMA_FORMAT_COLUMNSに含まれる列のセルに3桁区切りの表示形式を設定する。"""
+        for column_name in COMMA_FORMAT_COLUMNS:
+            if column_name not in df.columns:
+                continue
+            column_letter = get_column_letter(df.columns.get_loc(column_name) + 1)
+            for row in range(2, len(df) + 2):
+                worksheet[f"{column_letter}{row}"].number_format = COMMA_NUMBER_FORMAT
+
     def _build_rows(self, df: pd.DataFrame, solutions: Sequence[Solution]):
         """解ごと・目標値ごとにSummary用の集計行とDetails用の明細DataFrameを組み立てる。"""
         summary_rows = []
@@ -38,8 +76,8 @@ class ExcelWriter:
                     # この目標値には組み合わせが割り当てられなかったため、Summaryは空行にする
                     summary_rows.append({
                         "solution_no": solution_no,
-                        "target": "",
-                        "件数": "",
+                        "target": target,
+                        "件数": 0,
                         "合計": "",
                         "indexes": "",
                     })

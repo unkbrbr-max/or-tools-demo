@@ -9,7 +9,6 @@ _DEFAULTS = {
     "limit": "100",
     "num_search_workers": "4",
     "amount_column": "数値",
-    "title_column": "タイトル",
 }
 
 _parser = configparser.ConfigParser(defaults=_DEFAULTS)
@@ -21,4 +20,3 @@ OUTPUT_FILE = Path(_section["output_file"])
 DEFAULT_LIMIT = _section.getint("limit")
 NUM_SEARCH_WORKERS = _section.getint("num_search_workers")
 AMOUNT_COLUMN = _section["amount_column"]
-TITLE_COLUMN = _section["title_column"]

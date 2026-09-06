@@ -2,10 +2,10 @@ from typing import Sequence
 
 import pandas as pd
 
-from config import AMOUNT_COLUMN, TITLE_COLUMN
+from config import AMOUNT_COLUMN
 
-# Detailsシートで先頭に固定する列の並び順(数値の右にタイトルを表示する)
-DETAIL_LEADING_COLUMNS = ["solution_no", "target", "source_index", AMOUNT_COLUMN, TITLE_COLUMN]
+# Detailsシートで先頭に固定する列の並び順(残りのCSV列はこの後ろに元の順序で続く)
+DETAIL_LEADING_COLUMNS = ["solution_no", "target", "source_index", AMOUNT_COLUMN]
 
 # 1件の解: 目標値ごとの(target, 対象行インデックス一覧)のリスト
 Solution = Sequence[tuple[int, Sequence[int]]]

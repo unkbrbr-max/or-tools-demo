@@ -33,6 +33,18 @@ class ExcelWriter:
         for solution_no, groups in enumerate(solutions, start=1):
             for target, indexes in groups:
                 indexes = list(indexes)
+
+                if not indexes:
+                    # この目標値には組み合わせが割り当てられなかったため、Summaryは空行にする
+                    summary_rows.append({
+                        "solution_no": solution_no,
+                        "target": "",
+                        "件数": "",
+                        "合計": "",
+                        "indexes": "",
+                    })
+                    continue
+
                 result = df.iloc[indexes].copy()
 
                 result.insert(0, "source_index", indexes)

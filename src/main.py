@@ -36,9 +36,19 @@ def find_combinations(
     m = len(targets)
     # variables[k * n + i] が「行iを目標targets[k]のグループに割り当てるか」を表す
     variables = [model.NewBoolVar(f"x_{k}_{i}") for k in range(m) for i in range(n)]
+    # used[k] が「目標targets[k]に対して実際に組み合わせを割り当てるか」を表す
+    # (Falseの場合、その目標には行を割り当てず、Summaryは空行として出力する)
+    used = [model.NewBoolVar(f"used_{k}") for k in range(m)]
 
     for k, target in enumerate(targets):
-        model.Add(sum(amounts[i] * variables[k * n + i] for i in range(n)) == target)
+        group_sum = sum(amounts[i] * variables[k * n + i] for i in range(n))
+        group_count = sum(variables[k * n + i] for i in range(n))
+        model.Add(group_sum == target).OnlyEnforceIf(used[k])
+        model.Add(group_count >= 1).OnlyEnforceIf(used[k])
+        model.Add(group_count == 0).OnlyEnforceIf(used[k].Not())
+
+    # 少なくとも1つの目標値には組み合わせが割り当てられている必要がある
+    model.AddBoolOr(used)
 
     for i in range(n):
         model.Add(sum(variables[k * n + i] for k in range(m)) <= 1)
@@ -70,6 +80,9 @@ def print_solution(df: pd.DataFrame, solution_no: int, groups: list[tuple[int, l
     print(f"解: {solution_no}")
     for target, indexes in groups:
         print(f"--- target={target} ---")
+        if not indexes:
+            print("(組み合わせなし)")
+            continue
         print(df.iloc[indexes])
 
 
